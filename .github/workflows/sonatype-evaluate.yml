@@ -1,0 +1,24 @@
+name: Sonatype Workflow
+on: push
+jobs:
+  sonatype-cli:
+    runs-on: ubuntu-latest
+    steps:
+      # some steps are omitted...
+      # Check out your code
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+      # Perform an evaluation
+      - name: Run evaluate  action
+        id: evaluate
+        uses: sonatype/actions/evaluate@v1
+        with:
+          iq-server-url: https://your.lifecycle.server
+          username: ${{ secrets.LIFECYCLE_USERNAME }}
+          password: ${{ secrets.LIFECYCLE_PASSWORD }}
+          application-id: lifecycle-app
+          scan-targets: package.json
+      # Print out the results
+      - name: Log evaluate action output
+        run: echo "${{ steps.evaluate.outputs.scan-id }} ${{ steps.evaluate.outputs.report-url }}"
