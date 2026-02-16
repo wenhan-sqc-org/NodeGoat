@@ -36,7 +36,7 @@ function ScanHandler(db) {
                 }
             );
         } catch (err) {
-            console.error(`Error updating scan ${scanId}:`, err);
+            console.error(`updateScanStatus => Error updating scan ${scanId}:`, err);
         }
     };
 
@@ -76,27 +76,17 @@ function ScanHandler(db) {
 
             pipeline.on("end", () => {
                 console.log(
-                    `Scan ${scanId} completed. Found ${criticalVulnerabilities.length} critical vulnerabilities.`
+                    `processTrivyResults => Scan ${scanId} completed. 
+                    Found ${criticalVulnerabilities.length} critical vulnerabilities.`
                 );
                 resolve(criticalVulnerabilities);
             });
 
             pipeline.on("error", (err) => {
-                console.error(`Error processing results for scan ${scanId}:`, err);
+                console.error(`processTrivyResults => Error processing results for scan ${scanId}:`, err);
                 reject(err);
             });
         });
-    };
-
-    /**
-     * Check if running inside Docker
-     */
-    const isRunningInDocker = () => {
-        try {
-            return fs.existsSync("/.dockerenv");
-        } catch (err) {
-            return false;
-        }
     };
 
     /**
@@ -110,49 +100,33 @@ function ScanHandler(db) {
 
             // Run Trivy and wait for completion
             await new Promise((resolve, reject) => {
-                let trivy;
-                let stderrData = "";
+                let trivyProcess = spawn("trivy", [
+                    "repo", repoUrl,
+                    "--format", "json",
+                    "--output", jsonFilePath,
+                    "--scanners", "vuln"
+                ]);
 
-                if (isRunningInDocker()) {
-                    // Running inside Docker - Trivy is installed directly in the container
-                    trivy = spawn("trivy", [
-                        "repo", repoUrl,
-                        "--format", "json",
-                        "--output", jsonFilePath,
-                        "--scanners", "vuln"
-                    ]);
-                } else {
-                    // Running locally - use docker run with Trivy image
-                    trivy = spawn("docker", [
-                        "run", "--rm",
-                        "-v", `${SCAN_DIR}:/tmp/scans`,
-                        "aquasec/trivy:latest",
-                        "repo", repoUrl,
-                        "--format", "json",
-                        "--output", `/tmp/scans/${scanId}.json`,
-                        "--scanners", "vuln"
-                    ]);
-                }
-
-                trivy.stderr.on("data", (data) => {
-                    stderrData += data.toString();
-                    console.log(`Trivy stderr: ${data}`);
+                trivyProcess.stderr.on("data", (data) => {
+                    const stderrData = data.toString();
+                    console.log(`runTrivyScan =>  Trivy stderr: ${stderrData}`);
                 });
 
-                trivy.on("close", (code) => {
+                trivyProcess.on("close", (code) => {
                     if (code !== 0) {
-                        reject(new Error(`Trivy exited with code ${code}: ${stderrData}`));
+                        reject(new Error(`runTrivyScan => Trivy exited with code ${code}`));
                     } else {
                         resolve();
                     }
                 });
 
-                trivy.on("error", (err) => {
+                trivyProcess.on("error", (err) => {
+                    console.error(`runTrivyScan => Error processing results for scan ${scanId}:`, err);
                     reject(err);
                 });
             });
 
-            console.log(`Trivy scan completed for ${scanId}, processing results...`);
+            console.log(`runTrivyScan => Trivy scan completed for ${scanId}, processing results...`);
 
             // Process results using streams
             const criticalVulnerabilities = await processTrivyResults(scanId, jsonFilePath);
@@ -162,7 +136,7 @@ function ScanHandler(db) {
             try {
                 await fsPromises.unlink(jsonFilePath);
             } catch (err) {
-                console.error(`Error deleting ${jsonFilePath}:`, err);
+                console.error(`runTrivyScan => Error deleting ${jsonFilePath}:`, err);
             }
 
         } catch (err) {
@@ -231,7 +205,7 @@ function ScanHandler(db) {
             });
 
         } catch (err) {
-            console.error("Error creating scan:", err);
+            console.error("handleScanRequest = > Error creating scan:", err);
             return res.status(500).json({
                 error: "Internal server error"
             });
@@ -264,7 +238,7 @@ function ScanHandler(db) {
             });
 
         } catch (err) {
-            console.error("Error getting scan status:", err);
+            console.error("getScanStatus => Error getting scan status:", err);
             return res.status(500).json({
                 error: "Internal server error"
             });
