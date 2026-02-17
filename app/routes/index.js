@@ -8,6 +8,7 @@ const ResearchHandler = require("./research");
 const ScanHandler = require("./scan");
 const tutorialRouter = require("./tutorial");
 const ErrorHandler = require("./error").errorHandler;
+const graphqlRouter = require("./graphql");
 
 const index = (app, db) => {
 
@@ -87,6 +88,8 @@ const index = (app, db) => {
     // Scan API
     app.post("/api/v1/scan", scanHandler.handleScanRequest);
     app.get("/api/v1/scan/:scanId", scanHandler.getScanStatus);
+
+    graphqlRouter(app, db);
 };
 
 module.exports = index;

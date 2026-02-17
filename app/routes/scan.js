@@ -17,16 +17,9 @@ function ScanController(db) {
         const { repoUrl } = req.body;
 
         // Validate input
-        if (!repoUrl) {
+        if (!repoUrl || !scanService.isValidGithubUrl(repoUrl)) {
             return res.status(400).json({
-                error: "Missing required field: repoUrl"
-            });
-        }
-
-        // Validate GitHub URL
-        if (!scanService.isValidGithubUrl(repoUrl)) {
-            return res.status(400).json({
-                error: "Invalid GitHub repository URL"
+                error: "Invalid or missed: repoUrl field"
             });
         }
 
