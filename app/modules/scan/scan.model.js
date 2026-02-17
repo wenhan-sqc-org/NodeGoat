@@ -1,14 +1,6 @@
 "use strict";
 
-/**
- * Scan status enum
- */
-const ScanStatus = {
-    QUEUED: "Queued",
-    SCANNING: "Scanning",
-    FINISHED: "Finished",
-    FAILED: "Failed"
-};
+const { ScanStatus, ScannerType } = require("./enums");
 
 /**
  * Scan model - represents a security scan entity
@@ -18,7 +10,8 @@ class ScanModel {
         this.scanId = data.scanId || null;
         this.repoUrl = data.repoUrl || null;
         this.status = data.status || ScanStatus.QUEUED;
-        this.scanner = data.scanner || "trivy";
+        this.scanner = data.scanner || ScannerType.TRIVY;
+        // ...existing code...
         this.createdAt = data.createdAt || new Date();
         this.updatedAt = data.updatedAt || new Date();
         this.criticalVulnerabilities = data.criticalVulnerabilities || [];
@@ -99,5 +92,5 @@ class ScanModel {
     }
 }
 
-module.exports = { ScanModel, ScanStatus };
+module.exports = { ScanModel, ScanStatus, ScannerType };
 

@@ -11,6 +11,7 @@ const { chain } = require("stream-chain");
 
 const BaseScanWorker = require("./base.scan.worker");
 const { VulnerabilityDTO } = require("../dto");
+const { Severity } = require("../enums");
 
 const SCAN_DIR = "/tmp/scans";
 
@@ -67,13 +68,14 @@ class TrivyScanWorker extends BaseScanWorker {
     }
 
     /**
-     *
+     * Process Trivy scan results using streams
      * @param {string} jsonFilePath - Path to the Trivy JSON output
-     * @returns {Promise<Array>} - Array of critical vulnerabilities
+     * @param {string} severityFilter - Severity level to filter (default: CRITICAL)
+     * @returns {Promise<Array>} - Array of filtered vulnerabilities
      */
-    async processResults(jsonFilePath) {
+    async processResults(jsonFilePath, severityFilter = Severity.CRITICAL) {
         return new Promise((resolve, reject) => {
-            const criticalVulnerabilities = [];
+            const filteredVulnerabilities = [];
 
             const pipeline = chain([
                 fs.createReadStream(jsonFilePath),
@@ -85,22 +87,22 @@ class TrivyScanWorker extends BaseScanWorker {
             pipeline.on("data", ({ value }) => {
                 if (value && value.Vulnerabilities && Array.isArray(value.Vulnerabilities)) {
                     value.Vulnerabilities.forEach((vuln) => {
-                        if (vuln.Severity === "CRITICAL") {
+                        if (vuln.Severity === severityFilter) {
 
                             // Lets assume that we store critical vulnerabilities in memory
                             // Also possible to stream them to Kafka or store in DB directly from here if needed
                             // Another way use event emitter to send them one by one to the service layer,
                             // but for simplicity we will just collect them in an array and return at the end of stream
 
-                            criticalVulnerabilities.push(VulnerabilityDTO.fromTrivy(vuln, this.name));
+                            filteredVulnerabilities.push(VulnerabilityDTO.fromTrivy(vuln, this.name));
                         }
                     });
                 }
             });
 
             pipeline.on("end", () => {
-                console.log(`[TrivyScanWorker] Found ${criticalVulnerabilities.length} critical vulnerabilities`);
-                resolve(criticalVulnerabilities);
+                console.log(`[TrivyScanWorker] Found ${filteredVulnerabilities.length} ${severityFilter} vulnerabilities`);
+                resolve(filteredVulnerabilities);
             });
 
             pipeline.on("error", (err) => {
