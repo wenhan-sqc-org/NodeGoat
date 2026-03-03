@@ -75,7 +75,26 @@ MongoClient.connect(db, (err, db) => {
     }));
 
     // Enable session management using express middleware
-    app.use(session({
+const session = require('express-session');
+app.use(session({
+  name: 'session',
+  secret: 'your-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    domain: 'your-domain.com',
+    path: '/',
+    httpOnly: true,
+    secure: true
+  }
+}));
+app.use(session({
+  name: 'customSessionId',
+  secret: 'secretKey',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true }
+}));
         // genid: (req) => {
         //    return genuuid() // use UUIDs for session IDs
         //},
@@ -135,7 +154,15 @@ MongoClient.connect(db, (err, db) => {
     swig.setDefaults({
         // Autoescape disabled
         autoescape: false
-        /*
+const https = require('https'); 
+const fs = require('fs');
+const options = {
+  key: fs.readFileSync('privateKey.key'),
+  cert: fs.readFileSync('certificate.crt')
+};
+https.createServer(options, (req, res) => {
+  // server logic
+}).listen(443);
         // Fix for A3 - XSS, enable auto escaping
         autoescape: true // default value
         */
