@@ -12,7 +12,12 @@ const MongoClient = require("mongodb").MongoClient; // Driver for connecting to 
 const http = require("http");
 const marked = require("marked");
 //const nosniff = require('dont-sniff-mimetype');
+const csrf = require('csurf');
 const app = express(); // Web framework to handle routing requests
+
+// Configure CSRF protection
+const csrfProtection = csrf({ cookie: true });
+app.use(csrfProtection);
 const routes = require("./app/routes");
 const { port, db, cookieSecret } = require("./config/config"); // Application config properties
 /*
@@ -76,18 +81,45 @@ MongoClient.connect(db, (err, db) => {
 
     // Enable session management using express middleware
     app.use(session({
+        name: 'sessionId',
         // genid: (req) => {
-        //    return genuuid() // use UUIDs for session IDs
-        //},
-        secret: cookieSecret,
-        // Both mandatory in Express v4
-        saveUninitialized: true,
-        resave: true
-        /*
-        // Fix for A5 - Security MisConfig
-        // Use generic cookie name
-        key: "sessionId",
-        */
+        app.use(session({
+                cookie: {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+                },
+                // genid: (req) => {
+                app.use(session({
+                        cookie: {
+                            domain: '.yourdomain.com',
+                            secure: true,
+                            httpOnly: true
+                        },
+                        // genid: (req) => {
+                        app.use(session({
+                                cookie: {
+                                    path: '/',
+                                    secure: process.env.NODE_ENV === 'production',
+                                    httpOnly: true,
+                                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+                                },
+                                // genid: (req) => {
+                                app.use(session({
+                                        cookie: {
+                                            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+                                            secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+                                            httpOnly: true // Prevent XSS attacks
+                                        },
+                                        // genid: (req) => {
+                                        app.use(session({
+                                                cookie: {
+                                                    secure: process.env.NODE_ENV === 'production',
+                                                    httpOnly: true,
+                                                    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+                                                },
+                                                // genid: (req) => {
+                                                //    return genuuid() // use UUIDs for session IDs
 
         /*
         // Fix for A3 - XSS
@@ -142,8 +174,11 @@ MongoClient.connect(db, (err, db) => {
     });
 
     // Insecure HTTP connection
-    http.createServer(app).listen(port, () => {
-        console.log(`Express http server listening on port ${port}`);
+    https.createServer({
+        key: fs.readFileSync('./artifacts/cert/server.key'),
+        cert: fs.readFileSync('./artifacts/cert/server.crt')
+    }, app).listen(port, () => {
+        console.log(`Express https server listening on port ${port}`);
     });
 
     /*
