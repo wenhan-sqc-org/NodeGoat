@@ -1,0 +1,46 @@
+name: NodeGoat Vision Analysis
+on: [push, pull_request]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    # Use the official Vision analysis container
+    container:
+      image: ${{ vars.VISION_CLI_REGISTRY }}/vision_analysis:${{ vars.VISION_ANALYSIS_TAG }}
+
+    steps:
+      - name: Checkout NodeGoat Code
+        uses: actions/checkout@v4
+
+      - name: Bundle Source Code
+        run: |
+          # Create a compressed file of your NodeGoat source code for analysis
+          # Excluding node_modules to keep the upload small and fast
+          tar -czf nodegoat-source.tar.gz . --exclude=node_modules --exclude=.git
+
+      - name: Run Vision Analysis
+        shell: bash
+        run: |
+          echo "Uploading NodeGoat source to Vision Vdoo..."
+
+          # This command uploads the tarball and starts the scan
+          vdoo_analysis analyze \
+            --token ${{ secrets.VISION_TOKEN }} \
+            --base_url ${{ vars.VISION_BASE_URL }} \
+            --artifact-id ${{ vars.VISION_ARTIFACT_ID }} \
+            --image-path nodegoat-source.tar.gz \
+            -n "NodeGoat-Scan-${{ github.run_id }}" \
+            --verbose \
+            --output-uuid scan_uuid.txt
+
+          SCAN_UUID=$(cat scan_uuid.txt)
+          echo "Scan started successfully! UUID: ${SCAN_UUID}"
+
+          # Optional: Wait for status to confirm it reached the platform
+          vdoo_analysis images get_status \
+            --token ${{ secrets.VISION_TOKEN }} \
+            --base_url ${{ vars.VISION_BASE_URL }} \
+            --image-uuid ${SCAN_UUID}
+
+          echo "Done! You can now see the results at ${{ vars.VISION_BASE_URL }}"
