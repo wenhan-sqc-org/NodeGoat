@@ -1,25 +1,28 @@
-
 repos:
-  # 1. UNIVERSAL SECRET SCANNING (For all languages)
+  # 1. UNIVERSAL SECRET SCANNING (Extremely fast, blocks secrets at the gate)
   - repo: https://github.com/gitleaks/gitleaks
-    rev: 'v8.30.0' # Pointing to the latest stable version
+    rev: 'v8.30.0'
     hooks:
       - id: gitleaks
+        description: Prevent developers from accidentally committing passwords and API keys to Git.
 
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: 'v10.1.0'  # Use the sha / tag you want to point at
+  # 2. IaC / TERRAFORM SECURITY SCAN (For infrastructure source code)
+  - repo: https://github.com/aquasecurity/tfsec
+    rev: 'v1.28.14'
     hooks:
-    -   id: eslint
-        files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
-        types: [file]
-        args: ['--max-warnings=0']
-        additional_dependencies:
-          - eslint
-          - eslint-plugin-security # Add-on chuyên tìm lỗi bảo mật JS
+      - id: tfsec
+        args: ['--minimum-severity=MEDIUM'] # Ignore LOW severity issues to prevent developer alert fatigue
+        description: Scan for security misconfigurations in Terraform files (AWS, GCP, Azure).
 
-  # 3. Mấy cái dọn dẹp linh tinh (Bonus từ Mentor)
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: 'v6.0.0'
+  # 3. ULTRA-FAST STATIC ANALYSIS (SAST) WITH SEMGREP
+  - repo: https://github.com/returntocorp/semgrep
+    rev: 'v1.151.0'
     hooks:
-      - id: trailing-whitespace # Xóa dấu cách thừa
-      - id: check-yaml          # Kiểm tra file YAML có lỗi cú pháp không
+      - id: semgrep
+        name: semgrep
+        description: Scan for security vulnerabilities in source code.
+        # Use specific high-quality rulesets (low false positives) instead of a full scan
+        args:
+          - --config=p/javascript
+          - --config=p/nodejs
+          - --error

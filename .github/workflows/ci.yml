@@ -1,0 +1,92 @@
+name: DevSecOps Baseline CI 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# 1. CẤU HÌNH TRIGGER: Khi nào thì pipeline này được chạy?
+on:
+  push:
+    branches: [ "main", "dev", "feature/docker_build" ] # Chạy khi có code push lên nhánh main hoặc dev
+  pull_request:
+    branches: [ "main" ]        # Chạy khi có ai đó tạo Pull Request đòi gộp code vào main
+
+# 2. CẤU HÌNH JOBS: Các công việc cần làm
+jobs:
+  # --- KIỂM TRA HẠ TẦNG ---
+  terraform-check:
+    name: 1. Terraform Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 3. Terraform Init & Validate
+        run: |
+          cd terraform
+          terraform init
+          terraform validate
+
+  # # --- QUÉT MÃ NGUỒN BẢO MẬT (SAST) ---
+  # sast-scan:
+  #   name: 2. SAST Scanning (Semgrep)
+  #   needs: terraform-check 
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: 1. Checkout Source Code
+  #       uses: actions/checkout@v4
+
+  #     - name: 2. Run Semgrep
+  #       uses: returntocorp/semgrep-action@v1
+  #       with:
+  #         config: >- 
+  #           p/security-audit
+  #           p/nodejs
+
+  # ---  DOCKER BUILD  ---
+  build-and-test:
+    name: Build & Test Application
+    # needs: sast-scan
+    runs-on: ubuntu-latest      # Mượn một máy ảo Ubuntu miễn phí của GitHub để chạy
+
+    steps:
+      # Bước 1: Lấy code từ GitHub về cái máy ảo Ubuntu kia
+      - name: 1. Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Bước 2: Setup môi trường 
+      # --- Dành cho NodeJS ---
+      - name: 2. Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # # --- Dành cho Python ---
+      # - name: 2. Setup Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.10'
+
+      # Bước 3: Build thử Docker Image
+      - name: 3. Docker build image (No Push)
+        #pattern: ocker build -t ghcr.io/<repo_name>:<commit-sha> thay repo_name thành tên mong muốn
+        run: docker build -t nt524:${{ github.sha }} .
+      
+      # Bước 4: Tạo SBOM với Syft
+      - name: 4. Generate SBOM with Syft
+        #install syft and using Syft to generate SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft nt524:${{ github.sha }} -o spdx-json > sbom.spdx.json
+
+      # Bước 5: Quét Image với Trivy
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'nt524:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' # Nếu Trivy phát hiện lỗ hỏng mức HIGH hoặc CRITICAl, nó sẽ trả về mã lỗi 1
+          ignore-unfixed: true # Báo các lỗ hỏng đã có bản vá
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
