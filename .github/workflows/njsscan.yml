@@ -1,0 +1,43 @@
+name: njsscan SAST
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  njsscan:
+    name: SAST - njsscan Security Scan
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run njsscan (SARIF)
+        uses: ajinabraham/njsscan-action@v7
+        with:
+          args: ". --sarif --missing-controls -o results.sarif || true"
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+
+      - name: Run njsscan (JSON report)
+        if: always()
+        run: |
+          pip install njsscan
+          njsscan . --json --missing-controls -o njsscan_resultado.json || true
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: njsscan-report
+          path: njsscan_resultado.json
