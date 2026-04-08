@@ -8,26 +8,6 @@
 #   - Jesús Alfonso Pinzón Vega         (https://github.com/JAPV-X2612)
 #   - Juan Sebastián Buitrago Piñeros   (https://github.com/elmultiusos)
 #   - Juan Esteban Cely López           (https://github.com/Juan-cely-l)
-#
-# Pipeline stages (DevSecOps pillars):
-#   [0] Continuous Security  → enforced via quality gates across all jobs
-#   [1] Continuous Planning  → policy-as-code: thresholds defined as env vars
-#   [2] Continuous Design    → SonarCloud architecture / code-smell analysis
-#   [3] Continuous Integration → build + lint + unit/security tests in parallel
-#   [4] Continuous Deployment  → simulated Heroku deploy (gated by security)
-#   [5] Continuous Testing     → E2E tests + three SAST scanners
-#   [6] Continuous Observability → DefectDojo aggregates all findings
-#
-# Required GitHub Secrets:
-#   SONAR_TOKEN           – SonarCloud authentication token
-#   DEFECTDOJO_URL        – e.g. https://demo.defectdojo.org
-#   DEFECTDOJO_TOKEN      – DefectDojo API v2 key (admin user)
-#   HEROKU_API_KEY        – Heroku API key for simulated deploy
-#   HEROKU_APP_NAME       – Target Heroku application name
-#
-# Required GitHub Variables (or change defaults below):
-#   DEFECTDOJO_PRODUCT_ID    – Numeric product ID in DefectDojo
-#   DEFECTDOJO_ENGAGEMENT_ID – Numeric engagement ID in DefectDojo
 # =============================================================================
 
 name: "DevSecOps Security Pipeline"
