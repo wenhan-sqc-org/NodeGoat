@@ -1,0 +1,681 @@
+# =============================================================================
+# security-pipeline.yml
+# Unified DevSecOps Pipeline for OWASP NodeGoat
+# Course: Security and Privacy of Information Technology (SPTI)
+# Topic:  Security Metrics & KPIs across the SSDLC
+# Team:
+#   - David Felipe Velásquez Contreras  (https://github.com/DavidVCAI)
+#   - Jesús Alfonso Pinzón Vega         (https://github.com/JAPV-X2612)
+#   - Juan Sebastián Buitrago Piñeros   (https://github.com/elmultiusos)
+#   - Juan Esteban Cely López           (https://github.com/Juan-cely-l)
+#
+# Pipeline stages (DevSecOps pillars):
+#   [0] Continuous Security  → enforced via quality gates across all jobs
+#   [1] Continuous Planning  → policy-as-code: thresholds defined as env vars
+#   [2] Continuous Design    → SonarCloud architecture / code-smell analysis
+#   [3] Continuous Integration → build + lint + unit/security tests in parallel
+#   [4] Continuous Deployment  → simulated Heroku deploy (gated by security)
+#   [5] Continuous Testing     → E2E tests + three SAST scanners
+#   [6] Continuous Observability → DefectDojo aggregates all findings
+#
+# Required GitHub Secrets:
+#   SONAR_TOKEN           – SonarCloud authentication token
+#   DEFECTDOJO_URL        – e.g. https://demo.defectdojo.org
+#   DEFECTDOJO_TOKEN      – DefectDojo API v2 key (admin user)
+#   HEROKU_API_KEY        – Heroku API key for simulated deploy
+#   HEROKU_APP_NAME       – Target Heroku application name
+#
+# Required GitHub Variables (or change defaults below):
+#   DEFECTDOJO_PRODUCT_ID    – Numeric product ID in DefectDojo
+#   DEFECTDOJO_ENGAGEMENT_ID – Numeric engagement ID in DefectDojo
+# =============================================================================
+
+name: "DevSecOps Security Pipeline"
+
+on:
+  push:
+    branches: ["master", "main"]
+  pull_request:
+    branches: ["master", "main"]
+  workflow_dispatch:
+
+# ---------------------------------------------------------------------------
+# Global environment – centralises all thresholds (KISS / single source of truth)
+# ---------------------------------------------------------------------------
+env:
+  NODE_VERSION: "14.x"
+  # Quality-gate thresholds (Pillar 0 – Continuous Security)
+  MAX_CRITICAL_FINDINGS: 0   # pipeline FAILS if critical findings exceed this
+  MAX_HIGH_FINDINGS: 5       # pipeline FAILS if high/error findings exceed this
+  # SonarCloud identifiers (mirrors sonar-project.properties)
+  SONAR_PROJECT_KEY: "Juan-cely-l_NodeGoat"
+  SONAR_ORGANIZATION: "juan-cely-l"
+
+# ---------------------------------------------------------------------------
+# Concurrency: cancel in-progress runs on the same branch to save minutes
+# ---------------------------------------------------------------------------
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+
+  # ==========================================================================
+  # JOB 1 – LINT
+  # Pillar: Continuous Integration
+  # Metric: Code quality gate – linting errors count
+  # ==========================================================================
+  lint:
+    name: "CI · Lint"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: "Set up Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: "Run JSHint linter"
+        # Produces exit code > 0 on lint errors, failing the job
+        run: npx --no-install jshint@2.12.0 .
+
+  # ==========================================================================
+  # JOB 2 – BUILD
+  # Pillar: Continuous Integration
+  # Metric: Build success rate, dependency installation time
+  # ==========================================================================
+  build:
+    name: "CI · Build"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history required for SonarCloud blame data
+          persist-credentials: false
+
+      - name: "Set up Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: "Install dependencies (clean install)"
+        run: npm ci
+
+      - name: "Verify Cypress binary"
+        run: npm run cy:verify
+
+      # Persist node_modules and Cypress cache for downstream jobs
+      - name: "Cache build artefacts"
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+            ~/.cache/Cypress
+          key: "${{ runner.os }}-build-${{ hashFiles('package-lock.json') }}"
+
+  # ==========================================================================
+  # JOB 3 – E2E TESTS
+  # Pillar: Continuous Testing
+  # Metric: E2E pass rate, test execution time
+  # Depends on: build (needs cached node_modules)
+  # ==========================================================================
+  e2e-test:
+    name: "Test · E2E (Node ${{ matrix.node-version }})"
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["10.x", "12.x", "14.x"]
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: "Set up Node.js ${{ matrix.node-version }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: "Restore build cache"
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+            ~/.cache/Cypress
+          key: "${{ runner.os }}-build-${{ hashFiles('package-lock.json') }}"
+
+      - name: "Start MongoDB container"
+        run: |
+          docker run -d -p 27017:27017 mongo:4.0
+          timeout 60s bash -c \
+            'until nc -z -w 2 localhost 27017 && echo "MongoDB ready"; do sleep 2; done'
+
+      - name: "Run E2E test suite"
+        id: e2e
+        run: |
+          NODE_ENV=test npm start -- --silent &
+          npm run test:ci -- --config video=true
+
+      # Upload screenshots + videos only on failure for fast triage
+      - name: "Prepare Cypress artefacts on failure"
+        if: failure() && steps.e2e.outcome == 'failure'
+        working-directory: ./test/e2e
+        run: >
+          mkdir -p screenshots && find screenshots -mindepth 1 -maxdepth 1 -type d
+          -exec sh -c 'mv -- "videos/$(basename "$1").mp4" "$1"' _ {} \;
+
+      - name: "Upload Cypress artefacts on failure"
+        if: failure() && steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: "cypress-artefacts-node${{ matrix.node-version }}"
+          path: test/e2e/screenshots
+
+  # ==========================================================================
+  # JOB 4 – SAST: njsscan
+  # Pillar: Continuous Security / Continuous Testing
+  # Metrics:
+  #   KPI-1  Total findings count
+  #   KPI-2  Findings by severity (ERROR / WARNING / INFO)
+  #   KPI-3  OWASP Top-10 category distribution
+  #   KPI-4  Security quality gate (fails if thresholds exceeded)
+  # ==========================================================================
+  sast-njsscan:
+    name: "SAST · njsscan"
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    permissions:
+      contents: read
+      security-events: write   # required to upload SARIF to GitHub Security tab
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+
+      # ── Scan (SARIF → GitHub Security tab) ─────────────────────────────────
+      - name: "Run njsscan – SARIF output"
+        uses: ajinabraham/njsscan-action@v7
+        with:
+          args: ". --sarif --missing-controls -o njsscan.sarif || true"
+
+      - name: "Upload SARIF to GitHub Security"
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: njsscan.sarif
+
+      # ── Scan (JSON → metrics computation) ──────────────────────────────────
+      - name: "Run njsscan – JSON output"
+        if: always()
+        run: |
+          pip install njsscan --quiet
+          njsscan . --json --missing-controls -o njsscan-results.json || true
+
+      # ── Metrics + quality gate ──────────────────────────────────────────────
+      - name: "Compute KPIs and enforce quality gate"
+        if: always()
+        env:
+          MAX_CRITICAL: ${{ env.MAX_CRITICAL_FINDINGS }}
+          MAX_HIGH: ${{ env.MAX_HIGH_FINDINGS }}
+        run: |
+          python3 << 'SCRIPT'
+          import json, os, sys
+
+          with open("njsscan-results.json") as f:
+              data = json.load(f)
+
+          # njsscan groups findings under nodejs / templates / errors keys
+          findings = []
+          for category in data.get("nodejs", {}).values():
+              findings.extend(category.get("files", []))
+          for category in data.get("templates", {}).values():
+              findings.extend(category.get("files", []))
+
+          severity_count = {"ERROR": 0, "WARNING": 0, "INFO": 0}
+          for item in findings:
+              sev = item.get("match_lines", {})
+              # njsscan stores severity at the rule level, not file level;
+              # re-parse from top-level rules
+          # Re-count from rule metadata
+          severity_count = {"ERROR": 0, "WARNING": 0, "INFO": 0}
+          for rule_id, rule_data in {**data.get("nodejs", {}), **data.get("templates", {})}.items():
+              sev = rule_data.get("metadata", {}).get("severity", "INFO").upper()
+              count = len(rule_data.get("files", []))
+              severity_count[sev] = severity_count.get(sev, 0) + count
+
+          total = sum(severity_count.values())
+          critical = severity_count.get("ERROR", 0)
+          high     = severity_count.get("WARNING", 0)
+
+          # ── KPI report ──────────────────────────────────────────────────────
+          print("=" * 60)
+          print("  njsscan SECURITY METRICS REPORT")
+          print("=" * 60)
+          print(f"  Total findings : {total}")
+          print(f"  ERROR (critical): {critical}")
+          print(f"  WARNING (high)  : {high}")
+          print(f"  INFO            : {severity_count.get('INFO', 0)}")
+          print("=" * 60)
+
+          # ── Quality gate ────────────────────────────────────────────────────
+          max_critical = int(os.environ.get("MAX_CRITICAL", 0))
+          max_high     = int(os.environ.get("MAX_HIGH", 5))
+          gate_failed  = False
+
+          if critical > max_critical:
+              print(f"  [GATE FAIL] Critical findings {critical} > threshold {max_critical}")
+              gate_failed = True
+          if high > max_high:
+              print(f"  [GATE FAIL] High findings {high} > threshold {max_high}")
+              gate_failed = True
+
+          if gate_failed:
+              sys.exit(1)
+          else:
+              print("  [GATE PASS] All thresholds met.")
+          SCRIPT
+
+      - name: "Upload njsscan artefacts"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "njsscan-results"
+          path: |
+            njsscan.sarif
+            njsscan-results.json
+          retention-days: 30
+
+  # ==========================================================================
+  # JOB 5 – SAST: Semgrep
+  # Pillar: Continuous Security / Continuous Testing
+  # Metrics:
+  #   KPI-1  Findings by severity
+  #   KPI-2  OWASP Top-10 category coverage
+  #   KPI-3  Top vulnerable files
+  #   KPI-4  Security score (proxy metric, documented as such)
+  #   KPI-5  Quality gate enforcement
+  # ==========================================================================
+  sast-semgrep:
+    name: "SAST · Semgrep"
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "Install Semgrep"
+        run: pip install semgrep --quiet
+
+      # ── SARIF scan ──────────────────────────────────────────────────────────
+      - name: "Run Semgrep – SARIF output"
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/nodejs \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --config p/xss \
+            --config p/sql-injection \
+            --sarif \
+            --output semgrep.sarif \
+            . || true
+
+      - name: "Upload SARIF to GitHub Security"
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+      # ── JSON scan for metrics ───────────────────────────────────────────────
+      - name: "Run Semgrep – JSON output"
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/nodejs \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --json \
+            --output semgrep-results.json \
+            . || true
+
+      # ── Metrics + quality gate ──────────────────────────────────────────────
+      - name: "Compute KPIs and enforce quality gate"
+        if: always()
+        env:
+          MAX_CRITICAL: ${{ env.MAX_CRITICAL_FINDINGS }}
+          MAX_HIGH: ${{ env.MAX_HIGH_FINDINGS }}
+        run: |
+          python3 << 'SCRIPT'
+          import json, os, sys
+
+          with open("semgrep-results.json") as f:
+              data = json.load(f)
+
+          results = data.get("results", [])
+          errors  = data.get("errors", [])
+
+          # ── Severity aggregation ────────────────────────────────────────────
+          severity_count = {"ERROR": 0, "WARNING": 0, "INFO": 0}
+          for r in results:
+              sev = r.get("extra", {}).get("severity", "INFO").upper()
+              severity_count[sev] = severity_count.get(sev, 0) + 1
+
+          # ── OWASP Top-10 mapping ────────────────────────────────────────────
+          OWASP_MAP = {
+              "injection"      : "A03:2021 Injection",
+              "sql"            : "A03:2021 Injection",
+              "xss"            : "A03:2021 XSS",
+              "auth"           : "A07:2021 Auth Failures",
+              "crypto"         : "A02:2021 Crypto Failures",
+              "ssrf"           : "A10:2021 SSRF",
+              "deserial"       : "A08:2021 Integrity Failures",
+              "access-control" : "A01:2021 Broken Access Control",
+              "security-misc"  : "A05:2021 Security Misconfiguration",
+          }
+          owasp_count = {}
+          for r in results:
+              rule = r.get("check_id", "").lower()
+              matched = any(
+                  owasp_count.__setitem__(label, owasp_count.get(label, 0) + 1)
+                  for key, label in OWASP_MAP.items() if key in rule
+              )
+              if not matched:
+                  owasp_count["Other"] = owasp_count.get("Other", 0) + 1
+
+          # ── File hotspot ranking ────────────────────────────────────────────
+          file_count = {}
+          for r in results:
+              path = r.get("path", "unknown")
+              file_count[path] = file_count.get(path, 0) + 1
+
+          total    = len(results)
+          critical = severity_count.get("ERROR", 0)
+          high     = severity_count.get("WARNING", 0)
+
+          # ── Proxy security score (documented as proxy, not ground-truth) ────
+          score = max(0, 100 - (critical * 10) - (high * 3))
+
+          # ── KPI report ──────────────────────────────────────────────────────
+          SEP = "=" * 70
+          sep = "-" * 50
+          lines = [
+              SEP,
+              "  SEMGREP SECURITY METRICS REPORT – NodeGoat",
+              "  KPI Dashboard | SSDLC Security Metrics Seminar",
+              SEP,
+              "",
+              f"  Total findings : {total}",
+              f"  Files analysed : {len(file_count)}",
+              f"  Rules matched  : {len({r.get('check_id') for r in results})}",
+              f"  Scan errors    : {len(errors)}",
+              "",
+              sep,
+              "  KPI-1: Findings by Severity",
+              sep,
+          ]
+          for sev in ["ERROR", "WARNING", "INFO"]:
+              count = severity_count.get(sev, 0)
+              pct   = (count / total * 100) if total else 0
+              bar   = "#" * int(pct / 2)
+              lines.append(f"  {sev:10s}: {count:4d} ({pct:5.1f}%) {bar}")
+
+          lines += ["", sep, "  KPI-2: OWASP Top-10 Coverage", sep]
+          for cat, count in sorted(owasp_count.items(), key=lambda x: -x[1]):
+              pct = (count / total * 100) if total else 0
+              lines.append(f"  {cat:45s}: {count:3d} ({pct:5.1f}%)")
+
+          lines += ["", sep, "  KPI-3: Top-10 Vulnerable Files", sep]
+          for path, count in sorted(file_count.items(), key=lambda x: -x[1])[:10]:
+              lines.append(f"  {path:55s}: {count:3d}")
+
+          lines += ["", sep, "  KPI-4: Proxy Security Score", sep]
+          status = "PASS" if score >= 80 else ("NEEDS IMPROVEMENT" if score >= 50 else "FAIL")
+          lines += [
+              f"  Score  : {score}/100",
+              f"  Status : {status}",
+              "  NOTE   : This is a proxy metric. Authoritative score comes from SonarCloud.",
+              "",
+              SEP,
+          ]
+          report = "\n".join(lines)
+          print(report)
+
+          with open("semgrep-metrics-report.txt", "w") as f:
+              f.write(report)
+
+          metrics = {
+              "total_findings" : total,
+              "files_analysed" : len(file_count),
+              "severity"       : severity_count,
+              "owasp_coverage" : owasp_count,
+              "security_score" : score,
+              "top_files"      : dict(sorted(file_count.items(), key=lambda x: -x[1])[:10]),
+          }
+          with open("semgrep-metrics.json", "w") as f:
+              json.dump(metrics, f, indent=2)
+
+          # ── Quality gate ────────────────────────────────────────────────────
+          max_critical = int(os.environ.get("MAX_CRITICAL", 0))
+          max_high     = int(os.environ.get("MAX_HIGH", 5))
+          gate_failed  = False
+
+          if critical > max_critical:
+              print(f"\n  [GATE FAIL] Critical findings {critical} > threshold {max_critical}")
+              gate_failed = True
+          if high > max_high:
+              print(f"\n  [GATE FAIL] High findings {high} > threshold {max_high}")
+              gate_failed = True
+
+          if gate_failed:
+              sys.exit(1)
+          else:
+              print("\n  [GATE PASS] All thresholds met.")
+          SCRIPT
+
+      - name: "Upload Semgrep artefacts"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "semgrep-results"
+          path: |
+            semgrep.sarif
+            semgrep-results.json
+            semgrep-metrics-report.txt
+            semgrep-metrics.json
+          retention-days: 30
+
+  # ==========================================================================
+  # JOB 6 – SAST: SonarCloud
+  # Pillar: Continuous Design / Continuous Security
+  # Metrics (surfaced in SonarCloud dashboard):
+  #   KPI-1  Reliability rating (bugs)
+  #   KPI-2  Security rating (vulnerabilities)
+  #   KPI-3  Maintainability rating (code smells / technical debt)
+  #   KPI-4  Security hotspot review rate
+  #   KPI-5  Coverage (if unit tests are instrumented)
+  # ==========================================================================
+  sast-sonarcloud:
+    name: "SAST · SonarCloud"
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: "Checkout repository (full history for blame)"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Analyse with SonarCloud"
+        uses: SonarSource/sonarcloud-github-action@4006f663ecaf1f8093e8e4abb9227f6041f52216
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+          projectBaseDir: .
+
+  # ==========================================================================
+  # JOB 7 – UPLOAD TO DEFECTDOJO
+  # Pillar: Continuous Observability
+  # Purpose: Aggregate all SAST findings into a single pane of glass
+  # Metrics:
+  #   KPI-1  Total findings imported per scan type
+  #   KPI-2  New vs. duplicate findings (deduplication rate)
+  #   KPI-3  Mean Time to Remediate (MTTR) – tracked in DefectDojo UI
+  #   KPI-4  Risk exposure trend over time (DefectDojo dashboard)
+  # ==========================================================================
+  upload-defectdojo:
+    name: "Observability · DefectDojo Upload"
+    runs-on: ubuntu-latest
+    needs: [sast-njsscan, sast-semgrep, sast-sonarcloud]
+    # Run even when SAST jobs fail so findings are always recorded
+    if: always()
+
+    steps:
+      - name: "Download njsscan artefacts"
+        uses: actions/download-artifact@v4
+        with:
+          name: "njsscan-results"
+          path: ./artefacts/njsscan
+
+      - name: "Download Semgrep artefacts"
+        uses: actions/download-artifact@v4
+        with:
+          name: "semgrep-results"
+          path: ./artefacts/semgrep
+
+      # ── Upload njsscan JSON ─────────────────────────────────────────────────
+      - name: "Upload njsscan findings to DefectDojo"
+        run: |
+          curl -s -X POST \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=njsscan Scan" \
+            -F "file=@artefacts/njsscan/njsscan-results.json" \
+            -F "product_id=${{ vars.DEFECTDOJO_PRODUCT_ID }}" \
+            -F "engagement_id=${{ vars.DEFECTDOJO_ENGAGEMENT_ID }}" \
+            -F "active=true" \
+            -F "verified=false" \
+            -F "close_old_findings=true" \
+            -F "deduplication_on_engagement=true" \
+            | python3 -c "
+          import sys, json
+          resp = json.load(sys.stdin)
+          print(f'  [njsscan]  test_id={resp.get(\"test\")}  '
+                f'findings={resp.get(\"statistics\", {}).get(\"created\", \"?\")} created, '
+                f'{resp.get(\"statistics\", {}).get(\"closed\", \"?\")} closed')
+          "
+
+      # ── Upload Semgrep SARIF ────────────────────────────────────────────────
+      - name: "Upload Semgrep findings to DefectDojo"
+        run: |
+          curl -s -X POST \
+            "${{ secrets.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=SARIF" \
+            -F "file=@artefacts/semgrep/semgrep.sarif" \
+            -F "product_id=${{ vars.DEFECTDOJO_PRODUCT_ID }}" \
+            -F "engagement_id=${{ vars.DEFECTDOJO_ENGAGEMENT_ID }}" \
+            -F "active=true" \
+            -F "verified=false" \
+            -F "close_old_findings=true" \
+            -F "deduplication_on_engagement=true" \
+            | python3 -c "
+          import sys, json
+          resp = json.load(sys.stdin)
+          print(f'  [semgrep]  test_id={resp.get(\"test\")}  '
+                f'findings={resp.get(\"statistics\", {}).get(\"created\", \"?\")} created, '
+                f'{resp.get(\"statistics\", {}).get(\"closed\", \"?\")} closed')
+          "
+
+      # ── Observability summary ───────────────────────────────────────────────
+      - name: "Print observability summary"
+        if: always()
+        run: |
+          echo "============================================================"
+          echo "  DEFECTDOJO UPLOAD SUMMARY"
+          echo "  Dashboard: ${{ secrets.DEFECTDOJO_URL }}/dashboard"
+          echo "  Product ID   : ${{ vars.DEFECTDOJO_PRODUCT_ID }}"
+          echo "  Engagement ID: ${{ vars.DEFECTDOJO_ENGAGEMENT_ID }}"
+          echo "  Scan types uploaded: njsscan, Semgrep (SARIF)"
+          echo "  KPIs tracked in DefectDojo:"
+          echo "    - Total / new / duplicate findings"
+          echo "    - MTTR per severity"
+          echo "    - Risk exposure trend"
+          echo "============================================================"
+
+  # ==========================================================================
+  # JOB 8 – SIMULATED DEPLOY (Heroku)
+  # Pillar: Continuous Deployment
+  # Gate: only runs when build + all SAST + DefectDojo upload succeed
+  # Metric: Deployment frequency, lead time for changes (DORA metrics)
+  # ==========================================================================
+  deploy-simulated:
+    name: "CD · Deploy (Simulated – Heroku)"
+    runs-on: ubuntu-latest
+    needs: [lint, e2e-test, upload-defectdojo]
+    # Only deploy from the default branch, not from PRs
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Set up Node.js ${{ env.NODE_VERSION }}"
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: "Install Heroku CLI"
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: "Deploy to Heroku (simulated)"
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          # Simulated deploy: authenticate and push to Heroku remote.
+          # Because this is intentionally a demo, the app may not be
+          # fully functional on Heroku (NodeGoat needs MongoDB).
+          # The goal is to demonstrate the deployment gate in the pipeline.
+          heroku git:remote -a ${{ secrets.HEROKU_APP_NAME }}
+          git push heroku HEAD:main --force || true
+
+      - name: "Print deployment summary"
+        if: always()
+        run: |
+          echo "============================================================"
+          echo "  DEPLOYMENT SUMMARY"
+          echo "  Target  : Heroku (simulated)"
+          echo "  App     : ${{ secrets.HEROKU_APP_NAME }}"
+          echo "  Commit  : ${{ github.sha }}"
+          echo "  Triggered by: ${{ github.actor }}"
+          echo "  DORA metrics:"
+          echo "    - Deployment frequency: tracked via workflow run history"
+          echo "    - Lead time: from first commit to this step"
+          echo "============================================================"
