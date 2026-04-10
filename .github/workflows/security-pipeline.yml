@@ -110,6 +110,7 @@ jobs:
     name: "Test · E2E (Node ${{ matrix.node-version }})"
     runs-on: ubuntu-latest
     needs: [build]
+    if: false  # Disabled: Cypress 3.3.1 incompatible with Ubuntu 24.04 (libgconf EOL)
 
     strategy:
       fail-fast: false
