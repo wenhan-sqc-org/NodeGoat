@@ -90,14 +90,6 @@ jobs:
       - name: "Install dependencies (clean install)"
         run: npm ci
 
-      - name: "Install Cypress system dependencies"
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y libgconf-2-4 xvfb
-
-      - name: "Verify Cypress binary"
-        run: npm run cy:verify
-
       # Persist node_modules and Cypress cache for downstream jobs
       - name: "Cache build artefacts"
         uses: actions/cache@v4
