@@ -666,3 +666,4 @@ jobs:
           echo "    - Deployment frequency: tracked via workflow run history"
           echo "    - Lead time: from first commit to this step"
           echo "============================================================"
+
