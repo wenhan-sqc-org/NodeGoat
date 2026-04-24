@@ -87,24 +87,24 @@ const AllocationsDAO = function(db){
             if (err) return callback(err, null);
             if (!allocations.length) return callback("ERROR: No allocations found for the user", null);
 
-            let doneCounter = 0;
-            const userAllocations = [];
+            const userIds = allocations.map(alloc => alloc.userId);
 
-            allocations.forEach( alloc => {
-                userDAO.getUserById(alloc.userId, (err, user) => {
-                    if (err) return callback(err, null);
+            userDAO.getUsersByIds(userIds, (err, users) => {
+                if (err) return callback(err, null);
 
-                    alloc.userName = user.userName;
-                    alloc.firstName = user.firstName;
-                    alloc.lastName = user.lastName;
+                const usersById = {};
+                users.forEach(user => { usersById[user._id] = user; });
 
-                    doneCounter += 1;
-                    userAllocations.push(alloc);
-
-                    if (doneCounter === allocations.length) {
-                        callback(null, userAllocations);
+                allocations.forEach(alloc => {
+                    const user = usersById[parseInt(alloc.userId)];
+                    if (user) {
+                        alloc.userName = user.userName;
+                        alloc.firstName = user.firstName;
+                        alloc.lastName = user.lastName;
                     }
                 });
+
+                callback(null, allocations);
             });
         });
     };

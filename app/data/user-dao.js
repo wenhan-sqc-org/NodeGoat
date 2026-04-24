@@ -100,6 +100,13 @@ function UserDAO(db) {
         }, callback);
     };
 
+    this.getUsersByIds = (userIds, callback) => {
+        const parsedIds = [...new Set(userIds.map(id => parseInt(id)))];
+        usersCol.find({
+            _id: { $in: parsedIds }
+        }).toArray(callback);
+    };
+
     this.getUserByUserName = (userName, callback) => {
         usersCol.findOne({
             userName: userName
