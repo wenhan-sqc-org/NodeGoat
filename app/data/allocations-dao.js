@@ -48,9 +48,9 @@ const AllocationsDAO = function(db){
 
                     return callback(null, allocations);
                 });
+            } else {
+                return callback(err, null);
             }
-
-            return callback(err, null);
         });
     };
 
