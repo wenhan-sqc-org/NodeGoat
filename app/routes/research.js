@@ -9,10 +9,27 @@ function ResearchHandler(db) {
 
     const researchDAO = new ResearchDAO(db);
 
+    // Allow-list of permitted upstream research providers. Only requests whose
+    // base URL exactly matches one of these origins are allowed, to prevent
+    // SSRF (e.g. fetching cloud metadata endpoints like 169.254.169.254).
+    const ALLOWED_RESEARCH_URLS = [
+        "https://www.google.com/finance?q=",
+        "https://finance.yahoo.com/quote/"
+    ];
+
     this.displayResearch = (req, res) => {
 
         if (req.query.symbol) {
-            const url = req.query.url + req.query.symbol;
+            const baseUrl = req.query.url;
+            if (!ALLOWED_RESEARCH_URLS.includes(baseUrl)) {
+                res.writeHead(400, {
+                    "Content-Type": "text/html"
+                });
+                res.write("<h1>Invalid research URL.</h1>");
+                return res.end();
+            }
+            const symbol = encodeURIComponent(req.query.symbol);
+            const url = baseUrl + symbol;
             return needle.get(url, (error, newResponse, body) => {
                 if (!error && newResponse.statusCode === 200) {
                     res.writeHead(200, {
