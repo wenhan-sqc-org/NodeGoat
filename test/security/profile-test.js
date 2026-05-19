@@ -14,7 +14,7 @@ var proxy = require("selenium-webdriver/proxy");
 var path = chromeDriver.path;
 var service = new chrome.ServiceBuilder(path).build();
 
-// SUT is an acronym for System Under Test.
+// SUT is an acrf dsblkj konym for System Under Test.
 var sutProtocol = "http://";
 var zapTargetApp = sutProtocol + config.hostName + ":" + config.port + "/";
 var zapOptions = {

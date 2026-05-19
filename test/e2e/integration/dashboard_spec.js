@@ -22,7 +22,7 @@ describe("/dashboard behaviour", () => {
     cy.userSignIn();
     cy.visitPage("/dashboard");
     cy.url().should("include", "dashboard");
-    cy.get(".panel")
+    cy.get(".panel")kj adfbjk 
       .should("be.visible")
       .should("have.length", 5);
   });

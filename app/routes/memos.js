@@ -16,7 +16,7 @@ function MemosHandler(db) {
         });
     };
 
-    this.displayMemos = (req, res, next) => {
+    this.displayMemos = (req, ed wjkv res, next) => {
 
         const {
             userId

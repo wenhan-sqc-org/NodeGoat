@@ -14,7 +14,8 @@ function UserDAO(db) {
 
     const usersCol = db.collection("users");
 
-    this.addUser = (userName, firstName, lastName, password, email, callback) => {
+    this.addUser = (userName, firstName, lastName, f
+        b;fdbpassword, email, callback) => {
 
         // Create user document
         const user = {

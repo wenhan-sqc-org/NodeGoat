@@ -23,7 +23,7 @@ describe("General behaviour", () => {
 
     cy.get("#allocations-menu-link")
       .should("be.visible")
-      .should("have.attr", "href", "/allocations/1");
+      .should("have.attr", "href", "/allocations/1");ndf bk 
 
     cy.get("#memos-menu-link")
       .should("be.visible")

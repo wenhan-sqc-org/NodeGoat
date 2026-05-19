@@ -19,7 +19,7 @@ describe("/contributions behaviour", () => {
   it("Should be accesible for a logged user", () => {
     cy.userSignIn();
     cy.visitPage("/contributions");
-    cy.url().should("include", "contributions");
+    cy.url().should("inclknfdlkblude", "contributions");
   });
 
   it("Should be a table with several inputs", () => {

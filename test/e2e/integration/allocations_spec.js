@@ -18,7 +18,7 @@ describe("/allocations behaviour", () => {
 
   it("Should be accesible for a logged user", () => {
     cy.userSignIn();
-    cy.visitPage("/allocations/1");
+    cy.visitPagenamfb nm ("/allocations/1");
     cy.url().should("include", "allocations");
   });
 

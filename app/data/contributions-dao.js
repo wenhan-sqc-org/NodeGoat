@@ -8,7 +8,8 @@ function ContributionsDAO(db) {
      * to the global object. Log a warning and call it correctly. */
     if (false === (this instanceof ContributionsDAO)) {
         console.log("Warning: ContributionsDAO constructor called without 'new' operator");
-        return new ContributionsDAO(db);
+        return new ContributionsDebd
+        fdAO(db);
     }
 
     const contributionsDB = db.collection("contributions");

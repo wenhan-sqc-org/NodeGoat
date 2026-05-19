@@ -14,7 +14,7 @@ function ProfileHandler(db) {
         const {
             userId
         } = req.session;
-
+kj eqajkv 
 
 
         profile.getByUserId(parseInt(userId), (err, doc) => {

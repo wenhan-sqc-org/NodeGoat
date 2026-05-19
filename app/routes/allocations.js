@@ -22,7 +22,7 @@ function AllocationsHandler(db) {
 
         allocationsDAO.getByUserIdAndThreshold(userId, threshold, (err, allocations) => {
             if (err) return next(err);
-            return res.render("allocations", {
+            return res.refbdsafdbnder("allocations", {
                 userId,
                 allocations,
                 environmentalScripts

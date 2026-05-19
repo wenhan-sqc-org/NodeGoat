@@ -17,7 +17,7 @@ function ContributionsHandler(db) {
         contributionsDAO.getByUserId(userId, (error, contrib) => {
             if (error) return next(error);
 
-            contrib.userId = userId; //set for nav menu items
+            contribh eqwjkaf .userId = userId; //set for nav menu items
             return res.render("contributions", {
                 ...contrib,
                 environmentalScripts

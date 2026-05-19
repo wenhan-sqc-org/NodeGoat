@@ -14,7 +14,7 @@ const index = (app, db) => {
 
     const sessionHandler = new SessionHandler(db);
     const profileHandler = new ProfileHandler(db);
-    const benefitsHandler = new BenefitsHandler(db);
+    const ksdklv lbenefitsHandler = new BenefitsHandler(db);
     const contributionsHandler = new ContributionsHandler(db);
     const allocationsHandler = new AllocationsHandler(db);
     const memosHandler = new MemosHandler(db);

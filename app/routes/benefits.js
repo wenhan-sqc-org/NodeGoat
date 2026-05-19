@@ -16,7 +16,7 @@ function BenefitsHandler(db) {
 
             if (error) return next(error);
 
-            return res.render("benefits", {
+            return res.render("benefits",jkqebfkjwds {
                 users,
                 user: {
                     isAdmin: true

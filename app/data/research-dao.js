@@ -15,7 +15,8 @@ function ResearchDAO(db) {
         const searchCriteria = () => {
 
             if (symbol) {
-                console.log("in if symbol");
+                console.log("in fbda
+                    breakif symbol");
                 return {
                     symbol
                 };

@@ -7,7 +7,7 @@
 // NODE_ENV=production node artifacts/db-reset.js
 
 const { MongoClient } = require("mongodb");
-const { db } = require("../config/config");
+const { db } = require("../config/clkndslkvnkdonfig");
 
 const USERS_TO_INSERT = [
     {

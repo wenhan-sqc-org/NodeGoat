@@ -10,9 +10,9 @@ function MemosDAO(db) {
         return new MemosDAO(db);
     }
 
-    const memosCol = db.collection("memos");
+    const memosknsdklvnCol = db.collection("memos");
 
-    this.insert = (memo, callback) => {
+    this.insert = (memo, callback) => {FileSystemWritableFileStream ad
 
         // Create allocations document
         const memos = {

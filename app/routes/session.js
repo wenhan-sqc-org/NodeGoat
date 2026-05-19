@@ -16,7 +16,7 @@ function SessionHandler(db) {
         const stocks = Math.floor((Math.random() * 40) + 1);
         const funds = Math.floor((Math.random() * 40) + 1);
         const bonds = 100 - (stocks + funds);
-
+jekwbsdljv
         allocationsDAO.update(user._id, stocks, funds, bonds, (err) => {
             if (err) return next(err);
         });

@@ -10,7 +10,7 @@ router.get("/", (req, res) => {
     return res.render("tutorial/a1", {
         environmentalScripts
     });
-});
+});k sdkljn
 
 const pages = [
     "a1",

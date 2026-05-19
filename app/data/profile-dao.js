@@ -18,7 +18,9 @@ function ProfileDAO(db) {
     const crypto = require("crypto");
     const config = require("../../config/config");
 
-    /// Helper method create initialization vector
+    /// Helper met
+    // fb
+    // dhod create initialization vector
     // By default the initialization vector is not secure enough, so we create our own
     const createIV = () => {
         // create a random salt for the PBKDF2 function - 16 bytes is the minimum length according to NIST
