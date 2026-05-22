@@ -108,7 +108,7 @@ Scanner provenance: semgrep, detect-secrets, pnpm-audit, pip-audit, ruff, bandit
 
 ---
 
-### H-8 — Session not regenerated on login — session fixation
+### H-8 — Session not regenerated on login — session fixation ✅ Fixed
 - **File:** `app/routes/session.js:116`
 - **OWASP:** A2 — Broken Authentication
 - **Scanners:** NOT caught by any scanner (gap)

@@ -8,4 +8,5 @@
 - c7f1957 fix(xss): enable swig autoescape and add | safe to intentional HTML — HIGH — autoescape: false exposed every template variable as a raw XSS vector
 - 70acb33 fix(session): set httpOnly: true on session cookie — HIGH — cookie was JS-readable, enabling session theft via any XSS
 - b204bcf fix(ssrf): allowlist url and symbol on research endpoint — HIGH — both params were fully attacker-controlled, enabling SSRF and internal service probing
-- <will-fill-sha> fix(authz): add isAdmin gate to both /benefits routes — HIGH — any authenticated user could view and modify all users' benefit dates
+- bfbed1b fix(authz): add isAdmin gate to both /benefits routes — HIGH — any authenticated user could view and modify all users' benefit dates
+- <will-fill-sha> fix(session): regenerate session ID on login to prevent fixation — HIGH — pre-login session ID persisted after auth, enabling session fixation attacks
