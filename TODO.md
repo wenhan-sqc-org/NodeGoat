@@ -77,7 +77,7 @@ Scanner provenance: semgrep, detect-secrets, pnpm-audit, pip-audit, ruff, bandit
 
 ---
 
-### H-5 — Session cookie has no `httpOnly` flag
+### H-5 — Session cookie has no `httpOnly` flag ✅ Fixed
 - **File:** `server.js:78–102`
 - **OWASP:** A3 / A2
 - **Scanners:** semgrep (`express-cookie-session-no-httponly`)
