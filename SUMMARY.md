@@ -10,4 +10,4 @@
 - b204bcf fix(ssrf): allowlist url and symbol on research endpoint — HIGH — both params were fully attacker-controlled, enabling SSRF and internal service probing
 - bfbed1b fix(authz): add isAdmin gate to both /benefits routes — HIGH — any authenticated user could view and modify all users' benefit dates
 - 20c9cae fix(session): regenerate session ID on login to prevent fixation — HIGH — pre-login session ID persisted after auth, enabling session fixation attacks
-- <will-fill-sha> fix(crypto): encrypt SSN/DOB at rest in profile-dao — MEDIUM — SSN and DOB stored as plaintext; any DB read or secondary vuln exposed raw PII
+- 2543763 fix(crypto): encrypt SSN/DOB at rest in profile-dao — MEDIUM — SSN and DOB stored as plaintext; any DB read or secondary vuln exposed raw PII
