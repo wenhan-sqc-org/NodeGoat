@@ -45,7 +45,7 @@ Scanner provenance: semgrep, detect-secrets, pnpm-audit, pip-audit, ruff, bandit
 
 ---
 
-### H-2 — Plaintext password storage
+### H-2 — Plaintext password storage ✅ Fixed
 - **File:** `app/data/user-dao.js:25` (storage), `user-dao.js:61` (comparison)
 - **OWASP:** A2 — Broken Authentication
 - **Scanners:** NOT caught by any scanner (gap)
