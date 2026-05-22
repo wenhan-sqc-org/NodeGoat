@@ -131,7 +131,7 @@ Scanner provenance: semgrep, detect-secrets, pnpm-audit, pip-audit, ruff, bandit
 
 ---
 
-### M-2 — ReDoS — catastrophic backtracking in bank routing validation
+### M-2 — ReDoS — catastrophic backtracking in bank routing validation ✅ Fixed
 - **File:** `app/routes/profile.js:59`
 - **OWASP:** ReDoS / DoS
 - **Scanners:** NOT caught by any scanner (gap)
