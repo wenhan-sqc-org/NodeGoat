@@ -22,6 +22,20 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       continue-on-error: true 
 
+    # --- AQUÍ INICIA EL NUEVO BLOQUE SAST (CodeQL) ---
+    - name: Inicializar CodeQL (SAST)
+      uses: github/codeql-action/init@v3
+      with:
+        languages: 'javascript' # NodeGoat usa JavaScript
+
+    - name: Auto-compilación de CodeQL
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Ejecutar Análisis de CodeQL
+      uses: github/codeql-action/analyze@v3
+      continue-on-error: true
+    # --- AQUÍ TERMINA EL BLOQUE SAST ---
+
     - name: Configurar Node.js
       uses: actions/setup-node@v4
       with:
@@ -30,10 +44,11 @@ jobs:
     - name: Instalar dependencias del proyecto
       run: npm install
 
-    - name: Escaneo de dependencias con Snyk
+    # Tu paso de SCA que ya funciona perfectamente:
+    - name: Escaneo de dependencias con Snyk (SCA)
       uses: snyk/actions/node@master
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       with:
         args: --severity-threshold=high
-      continue-on-error: true # <-- Esto hace que el pipeline reporte los fallos pero siga en verde
+      continue-on-error: true
