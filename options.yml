@@ -1,0 +1,115 @@
+  Option 1: Test the NEW parameter (coverity_password)
+
+  name: coverity-action
+  on:
+    push:
+      branches: [main, master, develop, stage, release]
+    pull_request:
+      branches: [main, master, develop, stage, release]
+    workflow_dispatch:
+  jobs:
+    coverity:
+      runs-on: self-hosted
+      steps:
+        - name: Checkout Source
+          uses: actions/checkout@v4
+
+        - name: Coverity Scan (Testing NEW coverity_password parameter)
+          uses: blackduck-inc/black-duck-security-scan@brnach-coverage
+          with:
+            ### SCANNING: Required fields - Using NEW parameter name
+            coverity_url: ${{ vars.COVERITY_URL }}
+            coverity_user: ${{ secrets.COVERITY_USER }}
+            coverity_password: ${{ secrets.COVERITY_PASSPHRASE }}  # NEW parameter name
+
+            ### POLICY ENFORCEMENT: Break build on full scan when encounter outstanding issues
+            coverity_policy_view: ${{ github.event_name != 'pull_request' && 'Outstanding Issues' || '' }}
+
+            ### PULL REQUEST COMMENTS:
+            coverity_prComment_enabled: true
+
+            # Required when PR comments is enabled
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+
+            ## OPTIONAL DIAGNOSTICS: Upload logs as build artifact if true
+            include_diagnostics: false
+
+  Option 2: Test BACKWARD COMPATIBILITY (deprecated parameter still works)
+
+  name: coverity-action
+  on:
+    push:
+      branches: [main, master, develop, stage, release]
+    pull_request:
+      branches: [main, master, develop, stage, release]
+    workflow_dispatch:
+  jobs:
+    coverity:
+      runs-on: self-hosted
+      steps:
+        - name: Checkout Source
+          uses: actions/checkout@v4
+
+        - name: Coverity Scan (Testing backward compatibility with deprecated coverity_passphrase)
+          uses: blackduck-inc/black-duck-security-scan@brnach-coverage
+          with:
+            ### SCANNING: Required fields - Using OLD deprecated parameter name
+            coverity_url: ${{ vars.COVERITY_URL }}
+            coverity_user: ${{ secrets.COVERITY_USER }}
+            coverity_passphrase: ${{ secrets.COVERITY_PASSPHRASE }}  # DEPRECATED - but should still work
+
+            ### POLICY ENFORCEMENT: Break build on full scan when encounter outstanding issues
+            coverity_policy_view: ${{ github.event_name != 'pull_request' && 'Outstanding Issues' || '' }}
+
+            ### PULL REQUEST COMMENTS:
+            coverity_prComment_enabled: true
+
+            # Required when PR comments is enabled
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+
+            ## OPTIONAL DIAGNOSTICS: Upload logs as build artifact if true
+            include_diagnostics: false
+
+  Option 3: Comprehensive Test - Run BOTH scenarios in parallel
+
+  name: coverity-action-comprehensive-test
+  on:
+    push:
+      branches: [main, master, develop, stage, release]
+    pull_request:
+      branches: [main, master, develop, stage, release]
+    workflow_dispatch:
+  jobs:
+    # Test new parameter
+    coverity-new-param:
+      runs-on: self-hosted
+      steps:
+        - name: Checkout Source
+          uses: actions/checkout@v4
+
+        - name: Coverity Scan with NEW coverity_password
+          uses: blackduck-inc/black-duck-security-scan@brnach-coverage
+          with:
+            coverity_url: ${{ vars.COVERITY_URL }}
+            coverity_user: ${{ secrets.COVERITY_USER }}
+            coverity_password: ${{ secrets.COVERITY_PASSPHRASE }}
+            coverity_prComment_enabled: true
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+            include_diagnostics: true  # Enable to verify logs
+
+    # Test backward compatibility  
+    coverity-deprecated-param:
+      runs-on: self-hosted
+      steps:
+        - name: Checkout Source
+          uses: actions/checkout@v4
+
+        - name: Coverity Scan with DEPRECATED coverity_passphrase
+          uses: blackduck-inc/black-duck-security-scan@brnach-coverage
+          with:
+            coverity_url: ${{ vars.COVERITY_URL }}
+            coverity_user: ${{ secrets.COVERITY_USER }}
+            coverity_passphrase: ${{ secrets.COVERITY_PASSPHRASE }}
+            coverity_prComment_enabled: true
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+            include_diagnostics: true  # Enable to verify logs
