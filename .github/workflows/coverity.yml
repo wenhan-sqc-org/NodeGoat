@@ -25,7 +25,7 @@ jobs:
           ### SCANNING: Required fields
           coverity_url: ${{ vars.COVERITY_URL }}
           coverity_user: ${{ secrets.COVERITY_USER }}
-          coverity_password: ${{ secrets.COVERITY_PASSWORD }}
+          coverity_passphrase: ${{ secrets.COVERITY_PASSPHRASE }}
           
           ### POLICY ENFORCEMENT: Break build on full scan when encounter outstanding issues
           coverity_policy_view: ${{ github.event_name != 'pull_request' && 'Outstanding Issues' || '' }}
