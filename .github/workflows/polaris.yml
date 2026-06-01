@@ -19,6 +19,10 @@ jobs:
     #     java-version: 21
     #     distribution: temurin
     #     cache: maven
+    - name: Setup Node.js 18 (for testing)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
     - name: Check Node Version
       run: node --version
     - name: Polaris Scan
