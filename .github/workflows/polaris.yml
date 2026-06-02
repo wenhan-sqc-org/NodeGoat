@@ -26,7 +26,7 @@ jobs:
     #     distribution: temurin
     #     cache: maven
     - name: Polaris Scan
-      uses: LanceMcCarthy/black-duck-security-scan@lance/update-runner-node-version
+      uses: blackduck-inc/black-duck-security-scan@v2
       with:
         ### SCANNING: Required fields
         polaris_server_url: ${{ vars.POLARIS_SERVER_URL }}
