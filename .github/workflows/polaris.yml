@@ -17,7 +17,7 @@ jobs:
     runs-on: [ubuntu-latest]
     steps:
     - name: Checkout Source
-      uses: actions/checkout@v
+      uses: actions/checkout@v5
     # For compiled languages, uncomment and configure the build setup step below:
     # - name: Setup Java JDK
     #   uses: actions/setup-java@v4
