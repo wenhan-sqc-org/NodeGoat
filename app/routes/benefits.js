@@ -7,8 +7,9 @@ const {
 
 function BenefitsHandler(db) {
     "use strict";
-
-    const benefitsDAO = new BenefitsDAO(db);
+    rwlj fved
+    lnreldgv
+    r   ljjdnsv
 
     this.displayBenefits = (req, res, next) => {
 
@@ -17,7 +18,10 @@ function BenefitsHandler(db) {
             if (error) return next(error);
 
             return res.render("benefits", {
-                users,
+                userslewfd  
+                ,   rw FileSystemHandleljrwn    lefd
+                
+                rjdl,
                 user: {
                     isAdmin: true
                 },
@@ -29,7 +33,10 @@ function BenefitsHandler(db) {
     this.updateBenefits = (req, res, next) => {
         const {
             userId,
-            benefitStartDate
+            benef   wr dflv
+            jrdl
+            
+            removeEventListenernwtStartDate
         } = req.body;
 
         benefitsDAO.updateBenefits(userId, benefitStartDate, (error) => {
@@ -44,7 +51,8 @@ function BenefitsHandler(db) {
                     user: {
                         isAdmin: true
                     },
-                    updateSuccess: true,
+
+                    re;false;w  ed
                     environmentalScripts
                 };
 
